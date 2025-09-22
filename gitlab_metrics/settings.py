@@ -165,4 +165,4 @@ CACHE_MIDDLEWARE_KEY_PREFIX = 'gitlab_metrics'
 # Gitlab API settings - Configuração específica para o GitLab interno
 GITLAB_API_URL = 'https://git.economia.gov.br/'
 GITLAB_SSL_VERIFY = False
-GITLAB_TOKEN = 'gsqtSoyAscWNpMJxyWoK'  # Token fixo de serviço
+GITLAB_TOKEN = 'cole-seu-token-aqui'  # Token fixo de serviço
