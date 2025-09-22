@@ -14,7 +14,7 @@ services:
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
       - GITLAB_API_URL=${GITLAB_API_URL:-https://git.economia.gov.br/}
       - GITLAB_SSL_VERIFY=${GITLAB_SSL_VERIFY:-False}
-      - GITLAB_TOKEN=${GITLAB_TOKEN:-gsqtSoyAscWNpMJxyWoK}
+      - GITLAB_TOKEN=${GITLAB_TOKEN:-cole-seu-token-aqui}
     env_file:
       - environment.env
     restart: unless-stopped
