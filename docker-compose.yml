@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./staticfiles:/app/staticfiles
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-key-change-in-production-please-use-a-secure-key}
+      - DEBUG=${DEBUG:-False}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
+      - GITLAB_API_URL=${GITLAB_API_URL:-https://git.economia.gov.br/}
+      - GITLAB_SSL_VERIFY=${GITLAB_SSL_VERIFY:-False}
+      - GITLAB_TOKEN=${GITLAB_TOKEN:-gsqtSoyAscWNpMJxyWoK}
+    env_file:
+      - environment.env
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8000/api/health/', timeout=10)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

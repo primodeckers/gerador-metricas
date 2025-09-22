@@ -1,0 +1,1377 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Gerador de Métricas GitLab</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <style>
+      :root {
+        --sidebar-width: 280px;
+      }
+      body {
+        overflow-x: hidden;
+        background-color: #f8f9fa;
+      }
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 1000;
+        width: var(--sidebar-width);
+        background: #343a40;
+        color: #fff;
+        transition: all 0.3s;
+        box-shadow: 3px 0 10px rgba(0, 0, 0, 0.2);
+        overflow-y: auto;
+      }
+      .main-content {
+        margin-left: var(--sidebar-width);
+        width: calc(100% - var(--sidebar-width));
+        padding: 20px;
+      }
+      .sidebar-header {
+        padding: 20px;
+        background: #212529;
+      }
+      .sidebar .nav-link {
+        color: #ced4da;
+        padding: 12px 20px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+      }
+      .sidebar .nav-link:hover {
+        color: #fff;
+        background: #2c3136;
+      }
+      .sidebar .nav-link.active {
+        color: #fff;
+        background: #0d6efd;
+      }
+      .sidebar .nav-link i {
+        margin-right: 10px;
+        width: 20px;
+        text-align: center;
+      }
+      .sidebar .nav-link .fa-spinner {
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .sidebar-footer {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        padding: 15px;
+        background: #212529;
+        text-align: center;
+        font-size: 0.8rem;
+      }
+      .logo-text {
+        font-size: 1.5rem;
+        font-weight: bold;
+      }
+      .text-gitlab {
+        color: #fc6d26;
+      }
+      @media (max-width: 768px) {
+        .sidebar {
+          margin-left: -var(--sidebar-width);
+        }
+        .main-content {
+          margin-left: 0;
+          width: 100%;
+        }
+        .sidebar.active {
+          margin-left: 0;
+        }
+        .main-content.active {
+          margin-left: var(--sidebar-width);
+          width: calc(100% - var(--sidebar-width));
+        }
+        .sidebar-toggle {
+          display: block !important;
+        }
+      }
+      .sidebar-toggle {
+        display: none;
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 1100;
+      }
+
+      /* Loading overlay global */
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        backdrop-filter: blur(5px);
+      }
+
+      .loading-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s ease;
+      }
+
+      .loading-dots {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 1rem;
+      }
+
+      .loading-dots span {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #007bff;
+        margin: 0 4px;
+        animation: bounce 1.4s ease-in-out infinite both;
+      }
+
+      .loading-dots span:nth-child(1) {
+        animation-delay: -0.32s;
+      }
+      .loading-dots span:nth-child(2) {
+        animation-delay: -0.16s;
+      }
+      .loading-dots span:nth-child(3) {
+        animation-delay: 0s;
+      }
+
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          transform: scale(0);
+        }
+        40% {
+          transform: scale(1);
+        }
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Efeito de loading em elementos */
+      .loading {
+        opacity: 0.7;
+        pointer-events: none;
+        transition: all 0.3s ease;
+        position: relative;
+      }
+
+      .loading.nav-link {
+        background: linear-gradient(45deg, #007bff, #0056b3) !important;
+        color: white !important;
+        transform: scale(1.05);
+      }
+
+      /* Dark mode styles */
+      .bg-dark .card {
+        background-color: #343a40 !important;
+        color: #fff !important;
+        border-color: #495057 !important;
+      }
+
+      .bg-dark .card-header {
+        background-color: #212529 !important;
+        border-color: #495057 !important;
+        color: #fff !important;
+      }
+
+      .bg-dark .border {
+        border-color: #495057 !important;
+      }
+
+      .bg-dark .btn:not(.btn-outline) {
+        background-color: #495057 !important;
+        border-color: #495057 !important;
+        color: #fff !important;
+      }
+
+      .bg-dark .btn-outline-primary {
+        color: #0d6efd !important;
+        border-color: #0d6efd !important;
+      }
+
+      .bg-dark .btn-outline-primary:hover {
+        background-color: #0d6efd !important;
+        color: #fff !important;
+      }
+
+      .bg-dark .btn-outline-secondary {
+        color: #6c757d !important;
+        border-color: #6c757d !important;
+      }
+
+      .bg-dark .btn-outline-secondary:hover {
+        background-color: #6c757d !important;
+        color: #fff !important;
+      }
+
+      .bg-dark .form-control {
+        background-color: #495057 !important;
+        border-color: #6c757d !important;
+        color: #fff !important;
+      }
+
+      .bg-dark .form-label {
+        color: #fff !important;
+      }
+
+      .bg-dark .text-muted {
+        color: #adb5bd !important;
+      }
+
+      .bg-dark .ranking-item {
+        background-color: #343a40 !important;
+        border-color: #495057 !important;
+        color: #fff !important;
+      }
+
+      .bg-dark .badge {
+        background-color: #495057 !important;
+        color: #fff !important;
+      }
+
+      /* Ranking specific styles */
+      .ranking-item {
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+      }
+
+      .ranking-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+      }
+
+      .medal-container {
+        transition: all 0.3s ease;
+      }
+
+      .medal-container:hover {
+        transform: scale(1.1);
+      }
+
+      .position-number {
+        transition: all 0.3s ease;
+      }
+
+      .ranking-item:hover .position-number {
+        transform: scale(1.1);
+      }
+
+      /* Dark mode ranking styles */
+      .bg-dark .ranking-item {
+        background-color: #343a40 !important;
+        border-color: #495057 !important;
+        color: #fff !important;
+      }
+
+      .bg-dark .ranking-item:hover {
+        box-shadow: 0 8px 25px rgba(255, 255, 255, 0.1) !important;
+      }
+
+      .bg-dark .medal-container {
+        box-shadow: 0 4px 8px rgba(255, 255, 255, 0.1) !important;
+      }
+
+      .bg-dark .position-number {
+        background: #fff !important;
+        color: #000 !important;
+        box-shadow: 0 2px 4px rgba(255, 255, 255, 0.2) !important;
+      }
+
+      /* Improved ranking styles */
+      .ranking-item {
+        min-height: 80px;
+      }
+
+      .medal-container {
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .medal-container:hover {
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      .position-number {
+        border: 2px solid #fff;
+        font-weight: bold;
+      }
+
+      .stats {
+        min-width: 240px;
+      }
+
+      .stat-item {
+        padding: 8px;
+        border-radius: 8px;
+        background: rgba(248, 249, 250, 0.5);
+        margin: 0 4px;
+        transition: all 0.3s ease;
+      }
+
+      .stat-item:hover {
+        background: rgba(248, 249, 250, 0.8);
+        transform: translateY(-2px);
+      }
+
+      .stat-item i {
+        font-size: 1.2rem;
+      }
+
+      .stat-item .fw-bold {
+        font-size: 1.1rem;
+        line-height: 1.2;
+      }
+
+      .stat-item small {
+        font-size: 0.75rem;
+        line-height: 1;
+      }
+
+      /* Dark mode stat items */
+      .bg-dark .stat-item {
+        background: rgba(73, 80, 87, 0.3);
+      }
+
+      .bg-dark .stat-item:hover {
+        background: rgba(73, 80, 87, 0.5);
+      }
+
+      /* Recent projects styles */
+      .commit-item {
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef !important;
+      }
+
+      .commit-item:hover {
+        background: rgba(13, 110, 253, 0.1) !important;
+        transform: translateX(5px);
+        border-color: #0d6efd !important;
+      }
+
+      .commits-list {
+        scrollbar-width: thin;
+        scrollbar-color: #dee2e6 #f8f9fa;
+      }
+
+      .commits-list::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .commits-list::-webkit-scrollbar-track {
+        background: #f8f9fa;
+        border-radius: 3px;
+      }
+
+      .commits-list::-webkit-scrollbar-thumb {
+        background: #dee2e6;
+        border-radius: 3px;
+      }
+
+      .commits-list::-webkit-scrollbar-thumb:hover {
+        background: #adb5bd;
+      }
+
+      .project-card {
+        transition: all 0.3s ease;
+      }
+
+      .project-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+      }
+
+      /* Dark mode recent projects */
+      .bg-dark .commit-item {
+        background: rgba(73, 80, 87, 0.3) !important;
+        border-color: #495057 !important;
+      }
+
+      .bg-dark .commit-item:hover {
+        background: rgba(13, 110, 253, 0.2) !important;
+        border-color: #0d6efd !important;
+      }
+
+      .bg-dark .commits-list::-webkit-scrollbar-track {
+        background: #343a40;
+      }
+
+      .bg-dark .commits-list::-webkit-scrollbar-thumb {
+        background: #6c757d;
+      }
+
+      .bg-dark .commits-list::-webkit-scrollbar-thumb:hover {
+        background: #adb5bd;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="d-flex align-items-center">
+          <i class="fab fa-gitlab fa-2x text-gitlab me-3"></i>
+          <div class="logo-text">Métricas GitLab</div>
+        </div>
+      </div>
+      <ul class="nav flex-column">
+        <li class="nav-item">
+          <a href="/" class="nav-link"> <i class="fas fa-home"></i> Início </a>
+        </li>
+        <li class="nav-item">
+          <a href="/projects/" class="nav-link">
+            <i class="fas fa-project-diagram"></i> Projetos
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/report/" class="nav-link">
+            <i class="fas fa-chart-bar"></i> Relatórios
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link" onclick="toggleDarkMode()">
+            <i class="fas fa-moon" id="darkModeIcon"></i>
+            <span id="darkModeLabel">Modo Escuro</span>
+          </a>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <p>Gerador de Métricas GitLab</p>
+        <p>&copy; 2025</p>
+      </div>
+    </div>
+
+    <!-- Toggle Button for mobile -->
+    <button class="btn btn-dark sidebar-toggle" id="sidebarToggle">
+      <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Page Content -->
+    <div class="main-content">
+      <!-- Content goes here -->
+      <div class="container-fluid">
+        <h1>Conteúdo da Página</h1>
+        <p>Este é um exemplo de layout com menu lateral.</p>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Loading Indicators Management
+      class LoadingManager {
+        constructor() {
+          this.activeLoadings = new Set();
+        }
+
+        // Show full screen loading overlay
+        showOverlay(message = "Carregando...") {
+          const overlay = document.createElement("div");
+          overlay.className = "loading-overlay";
+          overlay.id = "loading-overlay";
+          overlay.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <div class="loading-text">${message}</div>
+                </div>
+            `;
+          document.body.appendChild(overlay);
+          this.activeLoadings.add("overlay");
+        }
+
+        // Hide full screen loading overlay
+        hideOverlay() {
+          const overlay = document.getElementById("loading-overlay");
+          if (overlay) {
+            overlay.remove();
+            this.activeLoadings.delete("overlay");
+          }
+        }
+
+        // Show loading state on button
+        showButtonLoading(button, message = "Carregando...") {
+          if (!button) return;
+
+          const originalText = button.innerHTML;
+          button.setAttribute("data-original-text", originalText);
+          button.classList.add("loading-button");
+          button.disabled = true;
+
+          button.innerHTML = `
+                <span class="btn-text" style="opacity: 0.7;">${message}</span>
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            `;
+
+          this.activeLoadings.add(button.id || "button-" + Date.now());
+        }
+
+        // Hide loading state on button
+        hideButtonLoading(button) {
+          if (!button) return;
+
+          const originalText = button.getAttribute("data-original-text");
+          if (originalText) {
+            button.innerHTML = originalText;
+            button.removeAttribute("data-original-text");
+          }
+
+          button.classList.remove("loading-button");
+          button.disabled = false;
+
+          // Remove from active loadings
+          for (let id of this.activeLoadings) {
+            if (id.startsWith("button-")) {
+              this.activeLoadings.delete(id);
+              break;
+            }
+          }
+        }
+
+        // Show loading state on form
+        showFormLoading(form) {
+          if (!form) return;
+
+          form.classList.add("form-loading");
+          const buttons = form.querySelectorAll('button[type="submit"]');
+          buttons.forEach((button) => this.showButtonLoading(button));
+        }
+
+        // Hide loading state on form
+        hideFormLoading(form) {
+          if (!form) return;
+
+          form.classList.remove("form-loading");
+          const buttons = form.querySelectorAll('button[type="submit"]');
+          buttons.forEach((button) => this.hideButtonLoading(button));
+        }
+
+        // Show loading state on results container
+        showResultsLoading(container, message = "Processando dados...") {
+          if (!container) return;
+
+          container.classList.add("results-loading");
+          container.setAttribute("data-loading-message", message);
+
+          // Add loading indicator inside container
+          const loadingDiv = document.createElement("div");
+          loadingDiv.className = "text-center py-5";
+          loadingDiv.innerHTML = `
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <div class="loading-text">${message}</div>
+            `;
+          loadingDiv.id = "results-loading-indicator";
+
+          container.appendChild(loadingDiv);
+          this.activeLoadings.add("results-" + container.id);
+        }
+
+        // Hide loading state on results container
+        hideResultsLoading(container) {
+          if (!container) return;
+
+          container.classList.remove("results-loading");
+          container.removeAttribute("data-loading-message");
+
+          const loadingIndicator = document.getElementById(
+            "results-loading-indicator"
+          );
+          if (loadingIndicator) {
+            loadingIndicator.remove();
+          }
+
+          this.activeLoadings.delete("results-" + container.id);
+        }
+
+        // Show progress bar for long operations
+        showProgress(container, message = "Processando...") {
+          if (!container) return;
+
+          const progressContainer = document.createElement("div");
+          progressContainer.className = "progress-container show";
+          progressContainer.innerHTML = `
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">${message}</div>
+            `;
+          progressContainer.id = "progress-container";
+
+          container.appendChild(progressContainer);
+          this.activeLoadings.add("progress");
+        }
+
+        // Update progress bar
+        updateProgress(percent, message = null) {
+          const progressBar = document.querySelector(
+            "#progress-container .progress-bar"
+          );
+          const progressText = document.querySelector(
+            "#progress-container .progress-text"
+          );
+
+          if (progressBar) {
+            progressBar.style.width = percent + "%";
+            progressBar.setAttribute("aria-valuenow", percent);
+          }
+
+          if (progressText && message) {
+            progressText.textContent = message;
+          }
+        }
+
+        // Hide progress bar
+        hideProgress() {
+          const progressContainer =
+            document.getElementById("progress-container");
+          if (progressContainer) {
+            progressContainer.remove();
+            this.activeLoadings.delete("progress");
+          }
+        }
+
+        // Clear all loading states
+        clearAll() {
+          this.hideOverlay();
+          this.hideProgress();
+
+          // Clear all button loadings
+          const loadingButtons = document.querySelectorAll(".loading-button");
+          loadingButtons.forEach((button) => this.hideButtonLoading(button));
+
+          // Clear all form loadings
+          const loadingForms = document.querySelectorAll(".form-loading");
+          loadingForms.forEach((form) => this.hideFormLoading(form));
+
+          // Clear all results loadings
+          const loadingResults = document.querySelectorAll(".results-loading");
+          loadingResults.forEach((container) =>
+            this.hideResultsLoading(container)
+          );
+
+          this.activeLoadings.clear();
+        }
+
+        // Check if any loading is active
+        isLoading() {
+          return this.activeLoadings.size > 0;
+        }
+      }
+
+      // Global loading manager instance
+      window.loadingManager = new LoadingManager();
+
+      // Utility functions for common loading patterns
+      window.showLoading = (element, message) => {
+        if (element.tagName === "FORM") {
+          window.loadingManager.showFormLoading(element);
+        } else if (element.tagName === "BUTTON") {
+          window.loadingManager.showButtonLoading(element, message);
+        } else {
+          window.loadingManager.showResultsLoading(element, message);
+        }
+      };
+
+      window.hideLoading = (element) => {
+        if (element.tagName === "FORM") {
+          window.loadingManager.hideFormLoading(element);
+        } else if (element.tagName === "BUTTON") {
+          window.loadingManager.hideButtonLoading(element);
+        } else {
+          window.loadingManager.hideResultsLoading(element);
+        }
+      };
+
+      // Auto-hide loading on page unload
+      window.addEventListener("beforeunload", () => {
+        window.loadingManager.clearAll();
+      });
+
+      // Auto-hide loading on form submission errors
+      document.addEventListener("DOMContentLoaded", () => {
+        // Add loading to all forms with data-loading attribute
+        const forms = document.querySelectorAll("form[data-loading]");
+        forms.forEach((form) => {
+          form.addEventListener("submit", (e) => {
+            window.loadingManager.showFormLoading(form);
+          });
+        });
+
+        // Add loading to all buttons with data-loading attribute
+        const buttons = document.querySelectorAll("button[data-loading]");
+        buttons.forEach((button) => {
+          button.addEventListener("click", (e) => {
+            if (button.type === "submit") return; // Handled by form
+            window.loadingManager.showButtonLoading(button);
+          });
+        });
+      });
+    </script>
+    <script>
+      // Função para configurar os event listeners
+      function setupSpinnerEvents() {
+        // Apenas destacar item ativo - sem spinner
+        highlightActiveMenuItem();
+      }
+
+      // Toggle sidebar on mobile
+      const sidebarToggle = document.getElementById("sidebarToggle");
+      if (sidebarToggle) {
+        sidebarToggle.addEventListener("click", function () {
+          try {
+            const sidebar = document.querySelector(".sidebar");
+            const mainContent = document.querySelector(".main-content");
+
+            if (sidebar && sidebar.classList) {
+              sidebar.classList.toggle("active");
+            }
+            if (mainContent && mainContent.classList) {
+              mainContent.classList.toggle("active");
+            }
+          } catch (error) {
+            console.warn("Erro ao alternar sidebar:", error);
+          }
+        });
+      }
+
+      // Dark mode functions
+      function toggleDarkMode() {
+        try {
+          const body = document.body;
+          if (body && body.classList) {
+            const isDark = body.classList.contains("bg-dark");
+
+            if (isDark) {
+              // Desativar modo escuro
+              body.classList.remove("bg-dark", "text-white");
+              localStorage.setItem("darkMode", "false");
+            } else {
+              // Ativar modo escuro
+              body.classList.add("bg-dark", "text-white");
+              localStorage.setItem("darkMode", "true");
+            }
+
+            // Aplicar modo escuro a elementos existentes
+            applyDarkModeToNewElements();
+
+            // Atualizar ícone
+            updateDarkModeIcon();
+          }
+        } catch (error) {
+          console.warn("Erro ao alternar modo escuro:", error);
+        }
+      }
+
+      function updateDarkModeIcon() {
+        try {
+          const icon = document.getElementById("darkModeIcon");
+          const label = document.getElementById("darkModeLabel");
+          const body = document.body;
+
+          if (icon && icon.classList && body) {
+            if (body.classList.contains("bg-dark")) {
+              // Modo escuro ativo - mostrar sol e "Modo Claro" (próxima ação)
+              icon.classList.remove("fa-moon");
+              icon.classList.add("fa-sun");
+              if (label) {
+                label.textContent = "Modo Claro";
+              }
+            } else {
+              // Modo claro ativo - mostrar lua e "Modo Escuro" (próxima ação)
+              icon.classList.remove("fa-sun");
+              icon.classList.add("fa-moon");
+              if (label) {
+                label.textContent = "Modo Escuro";
+              }
+            }
+          }
+        } catch (error) {
+          console.warn("Erro ao atualizar ícone do modo escuro:", error);
+        }
+      }
+
+      function initDarkMode() {
+        try {
+          const darkMode = localStorage.getItem("darkMode");
+          const body = document.body;
+
+          if (darkMode === "true" && body && body.classList) {
+            body.classList.add("bg-dark", "text-white");
+          }
+
+          // Atualizar ícone
+          updateDarkModeIcon();
+        } catch (error) {
+          console.warn("Erro ao inicializar modo escuro:", error);
+        }
+      }
+
+      function applyDarkModeToNewElements() {
+        try {
+          const body = document.body;
+          const isDarkMode = body && body.classList.contains("bg-dark");
+
+          if (!isDarkMode) {
+            // Se não está em modo escuro, remover classes de modo escuro
+            document.querySelectorAll(".dark-mode-applied").forEach((el) => {
+              el.classList.remove("dark-mode-applied");
+            });
+            return;
+          }
+
+          // Aplicar modo escuro a elementos que podem ter sido carregados dinamicamente
+          const elementsToStyle = [
+            ".card:not(.dark-mode-applied)",
+            ".alert:not(.dark-mode-applied)",
+            ".table:not(.dark-mode-applied)",
+            ".border:not(.dark-mode-applied)",
+            ".btn:not(.dark-mode-applied)",
+            ".form-control:not(.dark-mode-applied)",
+            ".form-label:not(.dark-mode-applied)",
+            ".badge:not(.dark-mode-applied)",
+            ".ranking-item:not(.dark-mode-applied)",
+          ];
+
+          elementsToStyle.forEach((selector) => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach((element) => {
+              if (element && element.classList) {
+                element.classList.add("dark-mode-applied");
+
+                // Aplicar estilos específicos para modo escuro
+                if (element.classList.contains("card")) {
+                  element.style.backgroundColor = "#343a40";
+                  element.style.color = "#fff";
+                  element.style.borderColor = "#495057";
+                } else if (element.classList.contains("border")) {
+                  element.style.borderColor = "#495057";
+                } else if (
+                  element.classList.contains("btn") &&
+                  !element.classList.contains("btn-outline")
+                ) {
+                  element.style.backgroundColor = "#495057";
+                  element.style.borderColor = "#495057";
+                }
+              }
+            });
+          });
+        } catch (error) {
+          console.warn("Erro ao aplicar modo escuro a novos elementos:", error);
+        }
+      }
+
+      // Highlight active menu item
+      function highlightActiveMenuItem() {
+        try {
+          const currentPath = window.location.pathname;
+          const navLinks = document.querySelectorAll(".sidebar .nav-link");
+
+          if (navLinks && navLinks.length > 0) {
+            navLinks.forEach((link) => {
+              if (link && link.classList) {
+                const href = link.getAttribute("href");
+                if (
+                  href === currentPath ||
+                  (href !== "/" && currentPath.startsWith(href))
+                ) {
+                  link.classList.add("active");
+                }
+              }
+            });
+          }
+        } catch (error) {
+          console.warn("Erro ao destacar item ativo:", error);
+        }
+      }
+
+      // Função para limpar estado da página
+      function clearPageState() {
+        try {
+          // Limpar qualquer timeout pendente
+          if (window.spinnerTimeout) {
+            clearTimeout(window.spinnerTimeout);
+            window.spinnerTimeout = null;
+          }
+
+          // Reabilitar todos os botões desabilitados
+          const disabledButtons = document.querySelectorAll("button[disabled]");
+          if (disabledButtons && disabledButtons.length > 0) {
+            disabledButtons.forEach(function (btn) {
+              if (btn && btn.disabled !== undefined) {
+                btn.disabled = false;
+              }
+            });
+          }
+
+          // Limpar estilos de links (com verificação de null)
+          const navLinks = document.querySelectorAll(".sidebar .nav-link");
+          if (navLinks && navLinks.length > 0) {
+            navLinks.forEach(function (link) {
+              if (link && link.style) {
+                link.style.pointerEvents = "auto";
+                link.style.opacity = "1";
+                link.style.backgroundColor = "";
+                link.style.borderRadius = "";
+                link.style.transform = "";
+                link.style.boxShadow = "";
+              }
+            });
+          }
+        } catch (error) {
+          console.warn("Erro ao limpar estado da página:", error);
+        }
+      }
+
+      // Detectar navegação do browser (back/forward)
+      window.addEventListener("pageshow", function (event) {
+        // Se a página foi carregada do cache (navegação do browser)
+        if (event.persisted) {
+          clearPageState();
+        }
+      });
+
+      // Detectar quando a página está sendo descarregada
+      window.addEventListener("beforeunload", function (event) {
+        clearPageState();
+      });
+
+      // Detectar mudanças no histórico do browser
+      window.addEventListener("popstate", function (event) {
+        clearPageState();
+      });
+
+      // Detectar quando a página fica visível (útil para abas em background)
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) {
+          clearPageState();
+        }
+      });
+
+      // Executar quando o DOM estiver pronto
+      document.addEventListener("DOMContentLoaded", function () {
+        // Inicializar modo escuro primeiro
+        initDarkMode();
+
+        // Configurar observer para aplicar modo escuro a elementos dinâmicos
+        if (window.MutationObserver) {
+          const observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+              if (
+                mutation.type === "childList" &&
+                mutation.addedNodes.length > 0
+              ) {
+                // Aplicar modo escuro a novos elementos após um pequeno delay
+                setTimeout(applyDarkModeToNewElements, 100);
+              }
+            });
+          });
+
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+          });
+        }
+
+        // Aplicar modo escuro periodicamente para garantir que funcione com conteúdo dinâmico
+        setInterval(applyDarkModeToNewElements, 2000);
+
+        // Verificar se os elementos existem antes de executar
+        if (document.querySelector(".sidebar")) {
+          setupSpinnerEvents();
+          highlightActiveMenuItem();
+          clearPageState(); // Limpar estado inicial
+
+          // Adicionar loading global para links do sidebar (EXCLUINDO botões de voltar e modo escuro)
+          const sidebarLinks = document.querySelectorAll(".sidebar .nav-link");
+          sidebarLinks.forEach((link) => {
+            link.addEventListener("click", function (e) {
+              // Excluir botões de voltar e modo escuro
+              if (
+                this.href &&
+                !this.href.includes("javascript:") &&
+                !this.target &&
+                !this.textContent.toLowerCase().includes("voltar") &&
+                !this.textContent.toLowerCase().includes("back") &&
+                !this.textContent.toLowerCase().includes("modo escuro") &&
+                !this.textContent.toLowerCase().includes("dark mode") &&
+                !this.onclick
+              ) {
+                this.classList.add("loading");
+
+                // Criar overlay de loading
+                const loadingOverlay = document.createElement("div");
+                loadingOverlay.className = "loading-overlay";
+                loadingOverlay.innerHTML = `
+                  <div class="loading-content">
+                    <div class="loading-dots">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                    <p>Navegando...</p>
+                    <small class="text-muted">Carregando página...</small>
+                  </div>
+                `;
+                document.body.appendChild(loadingOverlay);
+
+                // Remover após navegação
+                setTimeout(() => {
+                  this.classList.remove("loading");
+                  if (loadingOverlay.parentNode) {
+                    loadingOverlay.parentNode.removeChild(loadingOverlay);
+                  }
+                }, 2000);
+              }
+            });
+          });
+        }
+      });
+
+      // ===== FUNÇÕES DO RANKING DE DESENVOLVEDORES =====
+
+      // Função global para gerar HTML do ranking
+      window.generateRankingHTML = function (developerStats) {
+        if (!developerStats || developerStats.length === 0) {
+          return `
+          <div class="text-center py-4">
+              <i class="fas fa-users fa-3x text-muted mb-3"></i>
+              <p class="text-muted">Nenhum desenvolvedor encontrado para este período.</p>
+          </div>
+          `;
+        }
+
+        let html = '<div id="ranking-container">';
+
+        developerStats.slice(0, 10).forEach((dev, i) => {
+          const position = i + 1;
+
+          // Definir ícone e cores da medalha
+          let medalIcon = "";
+          let medalClass = "";
+          let positionBg = "";
+          let positionText = "";
+
+          if (position === 1) {
+            medalIcon = "fas fa-trophy";
+            medalClass = "";
+            positionBg = "#FFD700";
+            positionText = "#000";
+          } else if (position === 2) {
+            medalIcon = "fas fa-medal";
+            medalClass = "";
+            positionBg = "#C0C0C0";
+            positionText = "#000";
+          } else if (position === 3) {
+            medalIcon = "fas fa-award";
+            medalClass = "";
+            positionBg = "#CD7F32";
+            positionText = "#fff";
+          } else {
+            medalIcon = "fas fa-star";
+            medalClass = "";
+            positionBg = "#6c757d";
+            positionText = "#fff";
+          }
+
+          // Definir cor de fundo do item baseada na posição
+          let itemBg = "";
+          if (position <= 3) {
+            itemBg =
+              "background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.05));";
+          } else if (position <= 5) {
+            itemBg =
+              "background: linear-gradient(135deg, rgba(192, 192, 192, 0.1), rgba(168, 168, 168, 0.05));";
+          } else {
+            itemBg =
+              "background: linear-gradient(135deg, rgba(108, 117, 125, 0.1), rgba(73, 80, 87, 0.05));";
+          }
+
+          html += `
+          <div class="ranking-item mb-3 p-3 border rounded shadow-sm" 
+               data-commits="${dev.commits || 0}" 
+               data-additions="${dev.additions || 0}" 
+               data-deletions="${dev.deletions || 0}"
+               style="${itemBg} border-left: 4px solid ${positionBg};">
+              <div class="d-flex align-items-center">
+                  <div class="position me-3">
+                      <div class="medal-container" style="
+                          width: 50px; 
+                          height: 50px; 
+                          background: ${positionBg}; 
+                          border-radius: 50%; 
+                          display: flex; 
+                          align-items: center; 
+                          justify-content: center;
+                          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                          position: relative;
+                      ">
+                          <i class="${medalIcon} ${medalClass}" style="font-size: 1.2rem; color: ${positionText};"></i>
+                          <div class="position-number" style="
+                              position: absolute; 
+                              bottom: -5px; 
+                              right: -5px; 
+                              background: #fff; 
+                              color: #000; 
+                              border-radius: 50%; 
+                              width: 20px; 
+                              height: 20px; 
+                              display: flex; 
+                              align-items: center; 
+                              justify-content: center; 
+                              font-size: 0.7rem; 
+                              font-weight: bold;
+                              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                          ">#${position}</div>
+                      </div>
+                  </div>
+                  <div class="developer-info flex-grow-1">
+                      <div class="d-flex align-items-center mb-1">
+                          <i class="fas fa-user-circle me-2 text-primary"></i>
+                          <h6 class="mb-0 fw-bold">${
+                            dev.name || "Desconhecido"
+                          }</h6>
+                          ${
+                            position <= 3
+                              ? `<span class="badge bg-success ms-2">Top ${position}</span>`
+                              : ""
+                          }
+                      </div>
+                      <small class="text-muted">
+                          <i class="fas fa-envelope me-1"></i>
+                          ${dev.email || ""}
+                      </small>
+                  </div>
+                  <div class="stats">
+                      <div class="d-flex justify-content-between align-items-center">
+                          <div class="stat-item text-center" style="min-width: 80px;">
+                              <i class="fas fa-code-branch text-primary mb-1 d-block"></i>
+                              <div class="fw-bold text-primary fs-5">${
+                                dev.commits || 0
+                              }</div>
+                              <small class="text-muted">Commits</small>
+                          </div>
+                          <div class="stat-item text-center" style="min-width: 80px;">
+                              <i class="fas fa-plus text-success mb-1 d-block"></i>
+                              <div class="fw-bold text-success fs-5">+${
+                                dev.additions || 0
+                              }</div>
+                              <small class="text-muted">Adições</small>
+                          </div>
+                          <div class="stat-item text-center" style="min-width: 80px;">
+                              <i class="fas fa-minus text-danger mb-1 d-block"></i>
+                              <div class="fw-bold text-danger fs-5">-${
+                                dev.deletions || 0
+                              }</div>
+                              <small class="text-muted">Remoções</small>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+          `;
+        });
+
+        html += "</div>";
+        return html;
+      };
+
+      // Função para ordenar ranking
+      window.sortRanking = function (criteria) {
+        const container = document.getElementById("ranking-container");
+        if (!container) {
+          console.error("Container de ranking não encontrado");
+          return;
+        }
+
+        const items = Array.from(container.querySelectorAll(".ranking-item"));
+        if (items.length === 0) {
+          console.error("Nenhum item de ranking encontrado");
+          return;
+        }
+
+        items.sort((a, b) => {
+          const aValue = parseInt(a.getAttribute("data-" + criteria)) || 0;
+          const bValue = parseInt(b.getAttribute("data-" + criteria)) || 0;
+          return bValue - aValue; // Ordem decrescente
+        });
+
+        // Limpar container e reordenar
+        container.innerHTML = "";
+        items.forEach((item, index) => {
+          // Atualizar posição
+          const positionBadge = item.querySelector(".position .badge");
+          if (positionBadge) {
+            positionBadge.textContent = "#" + (index + 1);
+
+            // Atualizar classes de cor
+            positionBadge.className = "badge bg-primary rounded-pill fs-6";
+            if (index === 0) {
+              positionBadge.classList.add("text-warning");
+            } else if (index === 1) {
+              positionBadge.classList.add("text-secondary");
+            } else if (index === 2) {
+              positionBadge.classList.add("text-warning");
+            } else {
+              positionBadge.classList.add("text-muted");
+            }
+          }
+
+          container.appendChild(item);
+        });
+
+        // Atualizar botões ativos
+        document.querySelectorAll(".btn-group .btn").forEach((btn) => {
+          btn.classList.remove("active");
+        });
+
+        // Encontrar e ativar o botão correto
+        const activeButton = document.querySelector(
+          `[onclick="sortRanking('${criteria}')"]`
+        );
+        if (activeButton) {
+          activeButton.classList.add("active");
+        }
+      };
+
+      // Função para atualizar ranking
+      window.updateRanking = function () {
+        const startDate = document.getElementById("start-date");
+        const endDate = document.getElementById("end-date");
+
+        if (!startDate || !endDate) {
+          alert("Por favor, selecione as datas inicial e final.");
+          return;
+        }
+
+        const startDateValue = startDate.value;
+        const endDateValue = endDate.value;
+
+        if (!startDateValue || !endDateValue) {
+          alert("Por favor, selecione as datas inicial e final.");
+          return;
+        }
+
+        if (new Date(startDateValue) > new Date(endDateValue)) {
+          alert("A data inicial deve ser anterior à data final.");
+          return;
+        }
+
+        // Obter project ID da URL
+        const currentProjectId = window.location.pathname.split("/")[2];
+        if (!currentProjectId) {
+          alert("ID do projeto não encontrado");
+          return;
+        }
+
+        // Mostrar loading
+        const loadingElement = document.getElementById("ranking-loading");
+        const contentElement = document.getElementById("ranking-content");
+
+        if (loadingElement) loadingElement.style.display = "block";
+        if (contentElement) contentElement.style.display = "none";
+
+        // Fazer requisição para atualizar ranking
+        fetch(
+          `/api/gitlab/projects/${currentProjectId}/stats/?since=${startDateValue}&until=${endDateValue}`
+        )
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            // Verificar se data é válido
+            if (!Array.isArray(data)) {
+              throw new Error("Dados inválidos recebidos da API");
+            }
+
+            // Ordenar por commits
+            data.sort((a, b) => (b.commits || 0) - (a.commits || 0));
+
+            // Gerar novo HTML do ranking
+            const newRankingHtml = window.generateRankingHTML(data);
+            if (contentElement) {
+              contentElement.innerHTML = newRankingHtml;
+            }
+
+            // Esconder loading e mostrar conteúdo
+            if (loadingElement) loadingElement.style.display = "none";
+            if (contentElement) contentElement.style.display = "block";
+          })
+          .catch((error) => {
+            alert("Erro ao atualizar ranking. Tente novamente.");
+            if (loadingElement) loadingElement.style.display = "none";
+            if (contentElement) contentElement.style.display = "block";
+          });
+      };
+
+      // Função para resetar ranking
+      window.resetRanking = function () {
+        // Resetar datas para último mês
+        const today = new Date();
+        const lastMonth = new Date(
+          today.getFullYear(),
+          today.getMonth() - 1,
+          today.getDate()
+        );
+
+        const startDateInput = document.getElementById("start-date");
+        const endDateInput = document.getElementById("end-date");
+
+        if (startDateInput)
+          startDateInput.value = lastMonth.toISOString().split("T")[0];
+        if (endDateInput)
+          endDateInput.value = today.toISOString().split("T")[0];
+
+        // Atualizar ranking
+        window.updateRanking();
+      };
+    </script>
+  </body>
+</html>
